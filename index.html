@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JD Anime - Interactive Streaming & API Architecture Simulator</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            500: '#8b5cf6', // Violet
+                            600: '#7c3aed',
+                            accent: '#06b6d4' // Cyan
+                        },
+                        dark: {
+                            base: '#0B0F19',
+                            card: '#111827',
+                            border: '#1F2937',
+                            panel: '#0F172A'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Font Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        /* Custom scrollbars */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0B0F19; }
+        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #4B5563; }
+        /* Glowing neon utilities */
+        .neon-glow { box-shadow: 0 0 15px rgba(139, 92, 246, 0.4); }
+        .neon-text-glow { text-shadow: 0 0 8px rgba(6, 182, 212, 0.6); }
+        /* Custom video progress range input styling */
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 12px;
+            width: 12px;
+            border-radius: 50%;
+            background: #06b6d4;
+            cursor: pointer;
+            box-shadow: 0 0 8px #06b6d4;
+        }
+    </style>
+</head>
+<body class="bg-dark-base text-gray-100 min-h-screen flex flex-col selection:bg-brand-500 selection:text-white">
+
+    <!-- Top Navigation Bar -->
+    <header class="sticky top-0 z-40 bg-dark-card/90 backdrop-blur-md border-b border-dark-border px-4 lg:px-8 py-3 flex items-center justify-between transition-all">
+        <div class="flex items-center space-x-6">
+            <!-- Brand Logo -->
+            <button onclick="switchTab('explore')" class="flex items-center space-x-2 group focus:outline-none">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-brand-accent flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform">
+                    <i class="fa-solid font-black text-xl text-white">JD</i>
+                </div>
+                <div class="text-left">
+                    <span class="text-xl font-extrabold tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-500 to-cyan-400">JD ANIME</span>
+                    <span class="hidden sm:inline-block text-[10px] bg-purple-900/50 text-purple-300 border border-purple-500/30 px-1.5 py-0.5 rounded ml-1 font-mono uppercase tracking-widest">Full-Stack v2.4</span>
+                </div>
+            </button>
+
+            <!-- Navigation Links -->
+            <nav class="hidden md:flex items-center space-x-1">
+                <button id="nav-explore" onclick="switchTab('explore')" class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors text-brand-accent bg-dark-border/50">
+                    <i class="fa-solid font-medium text-xs mr-1.5"></i>Home & Catalog
+                </button>
+                <button id="nav-watchlist" onclick="switchTab('watchlist')" class="px-3 py-1.5 rounded-lg text-sm font-medium text-gray-400 hover:text-white transition-colors">
+                    <i class="fa-solid font-medium text-xs mr-1.5"></i>My Watchlist
+                </button>
+            </nav>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="flex-1 max-w-md mx-4 hidden sm:block">
+            <div class="relative">
+                <input type="text" id="searchInput" oninput="handleSearch()" placeholder="Search anime by title, genre, or tag..." 
+                    class="w-full bg-dark-base border border-dark-border focus:border-brand-500 text-sm rounded-xl py-2 pl-10 pr-4 text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-brand-500 transition-all">
+                <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-2.5 text-gray-500 text-sm"></i>
+            </div>
+        </div>
+
+        <!-- Right Side Actions & Mode Toggles -->
+        <div class="flex items-center space-x-3">
+            <!-- Full-Stack Simulator Drawer Toggle Button -->
+            <button onclick="toggleDevConsole()" class="flex items-center space-x-2 bg-gradient-to-r from-purple-900/60 to-indigo-900/60 hover:from-purple-800/80 hover:to-indigo-800/80 border border-purple-500/40 text-purple-300 px-3 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all shadow-sm hover:shadow-purple-500/20">
+                <i class="fa-solid fa-server text-brand-accent animate-pulse"></i>
+                <span class="hidden sm:inline">Backend API Explorer</span>
+                <span id="apiCallBadge" class="bg-brand-accent text-gray-900 text-[10px] font-bold px-1.5 py-0.2 rounded-full">0</span>
+            </button>
+
+            <!-- User Auth Profile Button -->
+            <div class="relative">
+                <button id="userAuthBtn" onclick="openAuthModal()" class="flex items-center space-x-2 bg-dark-border/60 hover:bg-dark-border text-gray-200 px-3 py-1.5 rounded-lg text-sm font-medium transition-all border border-gray-700/50">
+                    <div id="userAvatar" class="w-6 h-6 rounded-full bg-brand-600 flex items-center justify-center text-xs font-bold text-white">U</div>
+                    <span id="userNameDisplay" class="hidden sm:inline">Guest User</span>
+                    <i class="fa-solid fa-chevron-down text-xs text-gray-400"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Dynamic Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-8">
+
+        <!-- Banner / Hero Carousel (Shown in Explore Tab) -->
+        <section id="heroSection" class="relative rounded-2xl overflow-hidden border border-dark-border bg-dark-card shadow-2xl">
+            <div id="heroContent" class="relative min-h-[320px] sm:min-h-[420px] flex flex-col justify-end p-6 sm:p-10 bg-gradient-to-t from-dark-base via-dark-base/70 to-transparent z-10">
+                <span class="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-md bg-brand-accent/20 text-brand-accent border border-brand-accent/30 w-fit mb-3">
+                    <i class="fa-solid fa-fire text-amber-400"></i> #1 Trending Anime
+                </span>
+                <h1 id="heroTitle" class="text-3xl sm:text-5xl font-black tracking-tight text-white mb-2 drop-shadow-md">Solo Leveling</h1>
+                <p id="heroDescription" class="text-gray-300 text-sm sm:text-base max-w-2xl line-clamp-2 sm:line-clamp-3 mb-6">
+                    When weak hunter Jinwoo Sung is fatally injured in a double dungeon, a mysterious quest window appears before him, granting him the power to level up infinitely.
+                </p>
+                <div class="flex flex-wrap items-center gap-4">
+                    <button id="heroWatchBtn" class="flex items-center space-x-2 bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-500 hover:to-brand-600 text-white font-bold px-6 py-3 rounded-xl shadow-lg hover:shadow-brand-500/30 transition-all transform hover:-translate-y-0.5">
+                        <i class="fa-solid fa-play"></i>
+                        <span>Start Streaming Now</span>
+                    </button>
+                    <button id="heroBookmarkBtn" class="flex items-center space-x-2 bg-dark-card/80 hover:bg-dark-border text-gray-200 border border-dark-border font-medium px-5 py-3 rounded-xl transition-all">
+                        <i class="fa-regular fa-bookmark"></i>
+                        <span>Add to Watchlist</span>
+                    </button>
+                </div>
+            </div>
+            <!-- Dynamic Background Image & Gradient overlay -->
+            <div id="heroBg" class="absolute inset-0 bg-cover bg-center transition-all duration-700 opacity-60 scale-105" style="background-image: url('https://images.unsplash.com/photo-1578632767115-351597cf2477?q=80&w=1200&auto=format&fit=crop');"></div>
+        </section>
+
+        <!-- Dynamic Category / Genre Filter Tags -->
+        <section class="space-y-4">
+            <div class="flex items-center justify-between">
+                <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-sliders text-brand-accent"></i> Filter by Genre
+                </h2>
+                <span id="animeCountBadge" class="text-xs text-gray-400 font-mono">Showing all anime</span>
+            </div>
+            <div class="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none" id="genreContainer">
+                <!-- Genre buttons dynamically added via JS -->
+            </div>
+        </section>
+
+        <!-- Main Anime Grid Display Container -->
+        <section class="space-y-4">
+            <div class="flex items-center justify-between">
+                <h2 id="sectionTitle" class="text-xl font-extrabold tracking-tight text-white">Popular Releases</h2>
+                <div class="flex items-center space-x-2 text-xs text-gray-400">
+                    <span>Sort by:</span>
+                    <select id="sortSelect" onchange="handleSortChange()" class="bg-dark-card border border-dark-border text-gray-300 rounded-lg px-2.5 py-1 focus:outline-none text-xs">
+                        <option value="rating">Highest Rated</option>
+                        <option value="title">Alphabetical</option>
+                        <option value="episodes">Most Episodes</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Anime Cards Grid Layout -->
+            <div id="animeGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-6">
+                <!-- Dynamic cards populated by JavaScript -->
+            </div>
+
+            <!-- Empty State Loader/Notification -->
+            <div id="emptyState" class="hidden text-center py-16 bg-dark-card/50 rounded-2xl border border-dark-border">
+                <i class="fa-solid fa-ghost text-4xl text-gray-600 mb-3"></i>
+                <p class="text-gray-400 text-base font-medium">No anime matching your filter criteria were found.</p>
+                <button onclick="resetFilters()" class="mt-4 text-xs font-semibold text-brand-accent hover:underline">Reset All Filters</button>
+            </div>
+        </section>
+
+        <!-- User Watch History Bar -->
+        <section id="watchHistorySection" class="bg-dark-card/40 border border-dark-border rounded-2xl p-5 space-y-3">
+            <div class="flex items-center justify-between">
+                <h3 class="text-sm font-bold text-gray-200 flex items-center gap-2">
+                    <i class="fa-solid fa-clock-rotate-left text-purple-400"></i> Continue Watching (Session Progress)
+                </h3>
+                <span class="text-xs text-gray-500 font-mono">Front-End Cache Sync</span>
+            </div>
+            <div id="historyList" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <!-- Dynamically updated watchlist history cards -->
+            </div>
+        </section>
+    </main>
+
+    <!-- Interactive Full-Screen Video Streaming Modal -->
+    <div id="videoModal" class="fixed inset-0 z-50 bg-black/95 backdrop-blur-md hidden flex-col justify-center items-center transition-opacity duration-300">
+        <div class="w-full max-w-6xl h-full max-h-[92vh] flex flex-col bg-dark-card rounded-2xl overflow-hidden border border-dark-border shadow-2xl m-2 sm:m-4">
+            
+            <!-- Modal Header / Title bar -->
+            <div class="bg-dark-base/80 px-4 py-3 flex items-center justify-between border-b border-dark-border">
+                <div class="flex items-center space-x-3 truncate">
+                    <span class="bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded tracking-wide uppercase">Streaming</span>
+                    <h3 id="modalAnimeTitle" class="text-base font-bold text-white truncate">Anime Title</h3>
+                    <span id="modalEpisodeTitle" class="text-xs text-gray-400 truncate hidden sm:inline">- Ep 1</span>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <button onclick="simulateApiRequest('GET', '/api/v1/stream/token')" class="text-xs text-purple-400 hover:text-purple-300 bg-purple-950/50 border border-purple-800/40 px-2 py-1 rounded font-mono hidden md:inline">
+                        <i class="fa-solid fa-key text-[10px]"></i> DRM Token OK
+                    </button>
+                    <button onclick="closeVideoModal()" class="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-dark-border transition-colors">
+                        <i class="fa-solid fa-xmark text-xl"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Video Player & Episode Sidebar Body -->
+            <div class="flex-1 flex flex-col lg:flex-row overflow-hidden bg-black relative">
+                
+                <!-- Main Canvas/Video Simulation Screen -->
+                <div class="flex-1 flex flex-col justify-between relative group bg-neutral-950">
+                    
+                    <!-- Simulated Video Content Frame -->
+                    <div id="playerCanvas" class="absolute inset-0 flex items-center justify-center overflow-hidden bg-gradient-to-br from-purple-950/30 via-slate-900 to-black">
+                        <!-- Animated visual placeholder canvas element representing stream -->
+                        <div class="text-center p-6 space-y-3 z-10">
+                            <div class="relative inline-block">
+                                <div id="streamPulse" class="w-20 h-20 rounded-full bg-brand-500/20 border-2 border-brand-accent flex items-center justify-center mx-auto animate-pulse">
+                                    <i id="playIconMain" class="fa-solid fa-play text-2xl text-brand-accent ml-1"></i>
+                                </div>
+                            </div>
+                            <div>
+                                <p id="canvasStreamInfo" class="text-sm font-semibold text-gray-200">HLS Stream Ready: 1080p @ 60fps</p>
+                                <p id="canvasCodecInfo" class="text-xs font-mono text-gray-500">Codec: H.264 / AAC | Server Node: us-east-cdn-04</p>
+                            </div>
+                        </div>
+
+                        <!-- Animated Stream Lines Overlay -->
+                        <div class="absolute inset-0 opacity-20 bg-[radial-gradient(#8b5cf6_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none"></div>
+                    </div>
+
+                    <!-- Custom Video Controls Overlay -->
+                    <div class="relative z-20 mt-auto bg-gradient-to-t from-black via-black/80 to-transparent p-4 space-y-2">
+                        
+                        <!-- Timeline / Seek Bar -->
+                        <div class="flex items-center space-x-3">
+                            <span id="currentTimeDisplay" class="text-xs font-mono text-gray-300 w-10 text-right">00:00</span>
+                            <input type="range" id="videoSeekBar" min="0" max="100" value="0" oninput="seekVideo(this.value)" class="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-brand-accent">
+                            <span id="totalTimeDisplay" class="text-xs font-mono text-gray-400 w-10">24:00</span>
+                        </div>
+
+                        <!-- Player Control Buttons -->
+                        <div class="flex items-center justify-between pt-1">
+                            <div class="flex items-center space-x-4">
+                                <button onclick="togglePlayPause()" class="text-white hover:text-brand-accent transition-colors">
+                                    <i id="playPauseBtn" class="fa-solid fa-play text-lg"></i>
+                                </button>
+                                <button onclick="skipTime(-10)" class="text-gray-300 hover:text-white text-sm">
+                                    <i class="fa-solid fa-rotate-left"></i> 10s
+                                </button>
+                                <button onclick="skipTime(10)" class="text-gray-300 hover:text-white text-sm">
+                                    <i class="fa-solid fa-rotate-right"></i> 10s
+                                </button>
+                                <!-- Volume Slider -->
+                                <div class="flex items-center space-x-2 hidden sm:flex">
+                                    <i class="fa-solid fa-volume-high text-xs text-gray-400"></i>
+                                    <input type="range" min="0" max="100" value="80" class="w-16 h-1 bg-gray-700 rounded">
+                                </div>
+                            </div>
+
+                            <!-- Stream Settings (Sub/Dub, Quality, Fullscreen) -->
+                            <div class="flex items-center space-x-3">
+                                <!-- Sub / Dub Toggle Switch -->
+                                <div class="bg-dark-base border border-dark-border p-0.5 rounded-lg flex items-center text-xs">
+                                    <button id="subBtn" onclick="toggleSubDub('SUB')" class="px-2 py-0.5 rounded bg-brand-600 text-white font-bold">SUB</button>
+                                    <button id="dubBtn" onclick="toggleSubDub('DUB')" class="px-2 py-0.5 rounded text-gray-400 font-bold hover:text-white">DUB</button>
+                                </div>
+
+                                <!-- Stream Quality Switcher -->
+                                <select id="qualitySelect" onchange="changeQuality(this.value)" class="bg-dark-base border border-dark-border text-xs text-gray-300 rounded-lg px-2 py-1 focus:outline-none">
+                                    <option value="1080p">1080p FHD</option>
+                                    <option value="720p">720p HD</option>
+                                    <option value="480p">480p SD</option>
+                                </select>
+
+                                <button onclick="toggleFullscreenSimulation()" class="text-gray-300 hover:text-white text-sm">
+                                    <i class="fa-solid fa-expand"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Playlist / Episodes Sidebar -->
+                <div class="w-full lg:w-80 bg-dark-base border-t lg:border-t-0 lg:border-l border-dark-border flex flex-col h-64 lg:h-auto">
+                    <div class="p-3 border-b border-dark-border flex items-center justify-between bg-dark-card/50">
+                        <span class="text-xs font-bold uppercase tracking-wider text-gray-300 flex items-center gap-2">
+                            <i class="fa-solid fa-list-ul text-brand-accent"></i> Episodes Playlist
+                        </span>
+                        <span id="episodeCountBadge" class="text-xs bg-dark-border px-2 py-0.5 rounded text-gray-400 font-mono">24 Eps</span>
+                    </div>
+                    <div id="episodesList" class="flex-1 overflow-y-auto p-2 space-y-1">
+                        <!-- Dynamic episode list items generated via JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Full-Stack Architecture & API Visualizer Panel (Drawer) -->
+    <div id="devConsoleDrawer" class="fixed bottom-0 inset-x-0 z-50 bg-dark-panel border-t-2 border-brand-accent shadow-2xl transition-all duration-300 transform translate-y-full max-h-[75vh] flex flex-col">
+        <!-- Console Header -->
+        <div class="bg-dark-base px-4 py-2 flex items-center justify-between border-b border-dark-border">
+            <div class="flex items-center space-x-3">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
+                <h4 class="text-xs font-mono font-bold text-brand-accent uppercase tracking-wider">Full-Stack Architecture Inspector & Mock Server</h4>
+                <span class="text-[10px] text-gray-500 font-mono hidden sm:inline">Node.js Express Simulator / REST API Endpoint Monitor</span>
+            </div>
+            <div class="flex items-center space-x-2">
+                <button onclick="clearConsoleLogs()" class="text-xs text-gray-400 hover:text-white px-2 py-1 rounded bg-dark-border/40 font-mono">
+                    <i class="fa-solid fa-trash-can mr-1"></i>Clear
+                </button>
+                <button onclick="toggleDevConsole()" class="text-gray-400 hover:text-white p-1">
+                    <i class="fa-solid fa-chevron-down text-sm"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Console Interactive Grid -->
+        <div class="p-4 grid grid-cols-1 lg:grid-cols-3 gap-4 overflow-y-auto text-xs font-mono">
+            
+            <!-- Column 1: Server Event Log -->
+            <div class="bg-dark-base rounded-xl p-3 border border-dark-border flex flex-col h-60">
+                <div class="flex justify-between items-center mb-2 pb-1 border-b border-gray-800">
+                    <span class="text-gray-300 font-bold flex items-center gap-1.5">
+                        <i class="fa-solid fa-terminal text-emerald-400"></i> Server Request Logs
+                    </span>
+                    <span class="text-[10px] text-gray-500">Live Traffic</span>
+                </div>
+                <div id="serverLogContainer" class="flex-1 overflow-y-auto space-y-1.5 font-mono text-[11px] text-gray-300">
+                    <p class="text-gray-500">[System] Server initialized at http://localhost:5000</p>
+                    <p class="text-gray-500">[DB] PostgreSQL Database Connection Established.</p>
+                </div>
+            </div>
+
+            <!-- Column 2: JSON API Response Payload Inspector -->
+            <div class="bg-dark-base rounded-xl p-3 border border-dark-border flex flex-col h-60">
+                <div class="flex justify-between items-center mb-2 pb-1 border-b border-gray-800">
+                    <span class="text-gray-300 font-bold flex items-center gap-1.5">
+                        <i class="fa-solid fa-code text-cyan-400"></i> API Response JSON Inspector
+                    </span>
+                    <span id="lastEndpointBadge" class="text-[10px] text-brand-accent bg-brand-500/10 px-1.5 py-0.5 rounded">GET /api/v1/anime</span>
+                </div>
+                <pre id="jsonPayloadViewer" class="flex-1 overflow-y-auto bg-slate-950/80 p-2 rounded text-emerald-400 text-[11px] font-mono leading-relaxed">
+{
+  "status": 200,
+  "message": "Ready to inspect API payloads"
+}
+                </pre>
+            </div>
+
+            <!-- Column 3: Simulated Database Explorer & Actions -->
+            <div class="bg-dark-base rounded-xl p-3 border border-dark-border flex flex-col h-60 space-y-2">
+                <div class="flex justify-between items-center pb-1 border-b border-gray-800">
+                    <span class="text-gray-300 font-bold flex items-center gap-1.5">
+                        <i class="fa-solid fa-database text-purple-400"></i> DB Queries & Actions
+                    </span>
+                    <span class="text-[10px] text-purple-300">SQL / REST Simulator</span>
+                </div>
+                <div class="flex-1 space-y-2 overflow-y-auto">
+                    <p class="text-[11px] text-gray-400">Trigger simulated backend API calls to test client-server interaction:</p>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="simulateApiRequest('GET', '/api/v1/anime')" class="p-1.5 bg-dark-card hover:bg-dark-border text-left rounded border border-gray-700 text-[11px]">
+                            <span class="text-green-400 font-bold">GET</span> /anime
+                        </button>
+                        <button onclick="simulateApiRequest('GET', '/api/v1/user/profile')" class="p-1.5 bg-dark-card hover:bg-dark-border text-left rounded border border-gray-700 text-[11px]">
+                            <span class="text-green-400 font-bold">GET</span> /user/profile
+                        </button>
+                        <button onclick="simulateApiRequest('POST', '/api/v1/watchlist/toggle', { animeId: 101 })" class="p-1.5 bg-dark-card hover:bg-dark-border text-left rounded border border-gray-700 text-[11px]">
+                            <span class="text-blue-400 font-bold">POST</span> /watchlist
+                        </button>
+                        <button onclick="simulateApiRequest('GET', '/api/v1/analytics/metrics')" class="p-1.5 bg-dark-card hover:bg-dark-border text-left rounded border border-gray-700 text-[11px]">
+                            <span class="text-yellow-400 font-bold">GET</span> /metrics
+                        </button>
+                    </div>
+                    <div class="p-2 bg-dark-card/60 rounded border border-gray-800 text-[10px] text-gray-400">
+                        <span class="text-gray-200 font-semibold">Active Session DB State:</span>
+                        <div id="dbStateSummary" class="mt-1 font-mono text-cyan-300">
+                            Users: 1 | Watchlist: 0 items | Streams Active: 0
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Auth Simulation Modal (Login / Register) -->
+    <div id="authModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="bg-dark-card border border-dark-border rounded-2xl w-full max-w-md p-6 relative shadow-2xl">
+            <button onclick="closeAuthModal()" class="absolute top-4 right-4 text-gray-400 hover:text-white">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+            <div class="text-center mb-6">
+                <div class="w-12 h-12 rounded-2xl bg-brand-600 flex items-center justify-center text-white text-xl font-bold mx-auto mb-2">JD</div>
+                <h3 class="text-xl font-extrabold text-white">Welcome to JD Anime</h3>
+                <p class="text-xs text-gray-400">Sign in to sync your watch history and preferences across devices</p>
+            </div>
+            
+            <form onsubmit="handleAuthSubmit(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-300 mb-1">Username / Email</label>
+                    <input type="text" id="authUsername" value="OtakuStreamer99" required class="w-full bg-dark-base border border-dark-border rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-brand-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-300 mb-1">Password</label>
+                    <input type="password" value="••••••••••••" required class="w-full bg-dark-base border border-dark-border rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-brand-500">
+                </div>
+                <button type="submit" class="w-full py-2.5 bg-gradient-to-r from-brand-600 to-brand-accent text-white font-bold rounded-lg shadow-lg hover:opacity-95 transition-opacity">
+                    Simulate API Authentication
+                </button>
+            </form>
+            <p class="text-[11px] text-gray-500 text-center mt-4">Simulates OAuth JWT Token exchange with Node.js Backend</p>
+        </div>
+    </div>
+
+    <!-- Application JavaScript Logic -->
+    <script>
+        // --- DATA STATE & MOCK ANIME DATABASE ---
+        const ANIME_DATABASE = [
+            {
+                id: 101,
+                title: "Solo Leveling",
+                genre: ["Action", "Fantasy"],
+                rating: 4.9,
+                episodesCount: 12,
+                synopsis: "When weak hunter Jinwoo Sung is fatally injured in a double dungeon, a mysterious quest window appears before him.",
+                banner: "https://images.unsplash.com/photo-1578632767115-351597cf2477?q=80&w=1200&auto=format&fit=crop",
+                poster: "https://images.unsplash.com/photo-1578632767115-351597cf2477?q=80&w=500&auto=format&fit=crop",
+                tags: ["Trending", "Overpowered"]
+            },
+            {
+                id: 102,
+                title: "Jujutsu Kaisen",
+                genre: ["Action", "Shonen"],
+                rating: 4.8,
+                episodesCount: 24,
+                synopsis: "A boy swallows a cursed talisman - the finger of a demon - and becomes cursed himself.",
+                banner: "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?q=80&w=1200&auto=format&fit=crop",
+                poster: "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?q=80&w=500&auto=format&fit=crop",
+                tags: ["Supernatural", "Popular"]
+            },
+            {
+                id: 103,
+                title: "Demon Slayer: Kimetsu no Yaiba",
+                genre: ["Action", "Fantasy"],
+                rating: 4.9,
+                episodesCount: 26,
+                synopsis: "A family is attacked by demons and only two members survive - Tanjiro and his sister Nezuko.",
+                banner: "https://images.unsplash.com/photo-1534447677768-be436bb09401?q=80&w=1200&auto=format&fit=crop",
+                poster: "https://images.unsplash.com/photo-1534447677768-be436bb09401?q=80&w=500&auto=format&fit=crop",
+                tags: ["Demons", "Ufotable"]
+            },
+            {
+                id: 104,
+                title: "Cyberpunk: Edgerunners",
+                genre: ["Sci-Fi", "Action"],
+                rating: 4.7,
+                episodesCount: 10,
+                synopsis: "A street kid trying to survive in a technology and body modification-obsessed city of the future.",
+                banner: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1200&auto=format&fit=crop",
+                poster: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=500&auto=format&fit=crop",
+                tags: ["Futuristic", "Masterpiece"]
+            },
+            {
+                id: 105,
+                title: "Re:Zero - Starting Life in Another World",
+                genre: ["Isekai", "Fantasy", "Romance"],
+                rating: 4.6,
+                episodesCount: 25,
+                synopsis: "Subaru Natsuki is suddenly summoned to another world on his way home from the convenience store.",
+                banner: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1200&auto=format&fit=crop",
+                poster: "https://images.unsplash.com/photo-1563089145-599997674d42?q=80&w=500&auto=format&fit=crop",
+                tags: ["Psychological", "Isekai"]
+            },
+            {
+                id: 106,
+                title: "Attack on Titan",
+                genre: ["Action", "Sci-Fi"],
+                rating: 4.9,
+                episodesCount: 75,
+                synopsis: "After his hometown is destroyed and his mother is killed, Eren Jaeger vows to cleanse the earth of Titans.",
+                banner: "https://images.unsplash.com/photo-1578632767115-351597cf2477?q=80&w=1200&auto=format&fit=crop",
+                poster: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=500&auto=format&fit=crop",
+                tags: ["Epic", "Survival"]
+            }
+        ];
+
+        const GENRES = ["All", "Action", "Fantasy", "Shonen", "Sci-Fi", "Romance", "Isekai"];
+
+        // State Management
+        let appState = {
+            selectedGenre: "All",
+            searchQuery: "",
+            sortBy: "rating",
+            activeTab: "explore",
+            watchlist: JSON.parse(localStorage.getItem('jd_watchlist')) || [],
+            watchHistory: JSON.parse(localStorage.getItem('jd_history')) || [],
+            currentUser: "OtakuStreamer99",
+            apiCallCount: 0,
+            currentStreamingAnime: null,
+            currentEpisodeIndex: 1,
+            isPlaying: false,
+            playbackProgress: 0,
+            playbackTimer: null,
+            subMode: "SUB"
+        };
+
+        // --- INITIALIZATION ---
+        window.addEventListener('DOMContentLoaded', () => {
+            renderGenres();
+            renderAnimeGrid();
+            updateWatchHistoryUI();
+            updateDbStateSummary();
+            
+            // Set up Hero section initial state
+            setHeroAnime(ANIME_DATABASE[0]);
+
+            // Initial Backend Log
+            logServerAction('SYSTEM', 'REST API Engine Initialized. Listening on port 5000.');
+        });
+
+        // --- NAVIGATION & TABS ---
+        function switchTab(tab) {
+            appState.activeTab = tab;
+            
+            const exploreBtn = document.getElementById('nav-explore');
+            const watchlistBtn = document.getElementById('nav-watchlist');
+            const heroSection = document.getElementById('heroSection');
+            const sectionTitle = document.getElementById('sectionTitle');
+
+            if (tab === 'explore') {
+                exploreBtn.className = "px-3 py-1.5 rounded-lg text-sm font-medium text-brand-accent bg-dark-border/50";
+                watchlistBtn.className = "px-3 py-1.5 rounded-lg text-sm font-medium text-gray-400 hover:text-white transition-colors";
+                heroSection.classList.remove('hidden');
+                sectionTitle.innerText = "Popular Releases";
+            } else if (tab === 'watchlist') {
+                watchlistBtn.className = "px-3 py-1.5 rounded-lg text-sm font-medium text-brand-accent bg-dark-border/50";
+                exploreBtn.className = "px-3 py-1.5 rounded-lg text-sm font-medium text-gray-400 hover:text-white transition-colors";
+                heroSection.classList.add('hidden');
+                sectionTitle.innerText = "My Bookmarked Watchlist";
+            }
+
+            simulateApiRequest('GET', `/api/v1/${tab}`);
+            renderAnimeGrid();
+        }
+
+        // --- HERO CAROUSEL ---
+        function setHeroAnime(anime) {
+            document.getElementById('heroTitle').innerText = anime.title;
+            document.getElementById('heroDescription').innerText = anime.synopsis;
+            document.getElementById('heroBg').style.backgroundImage = `url('${anime.banner}')`;
+            
+            const watchBtn = document.getElementById('heroWatchBtn');
+            watchBtn.onclick = () => openVideoModal(anime.id, 1);
+
+            const bookmarkBtn = document.getElementById('heroBookmarkBtn');
+            bookmarkBtn.onclick = () => toggleWatchlist(anime.id);
+        }
+
+        // --- GENRE & FILTERING LOGIC ---
+        function renderGenres() {
+            const container = document.getElementById('genreContainer');
+            container.innerHTML = GENRES.map(genre => {
+                const isActive = appState.selectedGenre === genre;
+                const activeClass = isActive 
+                    ? "bg-brand-600 text-white font-bold border-brand-500 shadow-md shadow-brand-500/20" 
+                    : "bg-dark-card text-gray-400 border-dark-border hover:bg-dark-border hover:text-white";
+                
+                return `
+                    <button onclick="selectGenre('${genre}')" class="px-4 py-2 rounded-xl text-xs border transition-all whitespace-nowrap ${activeClass}">
+                        ${genre}
+                    </button>
+                `;
+            }).join('');
+        }
+
+        function selectGenre(genre) {
+            appState.selectedGenre = genre;
+            renderGenres();
+            renderAnimeGrid();
+            simulateApiRequest('GET', `/api/v1/anime?genre=${genre}`);
+        }
+
+        function handleSearch() {
+            appState.searchQuery = document.getElementById('searchInput').value.toLowerCase();
+            renderAnimeGrid();
+        }
+
+        function handleSortChange() {
+            appState.sortBy = document.getElementById('sortSelect').value;
+            renderAnimeGrid();
+        }
+
+        function resetFilters() {
+            appState.selectedGenre = "All";
+            appState.searchQuery = "";
+            document.getElementById('searchInput').value = "";
+            renderGenres();
+            renderAnimeGrid();
+        }
+
+        // --- RENDER ANIME GRID ---
+        function renderAnimeGrid() {
+            const grid = document.getElementById('animeGrid');
+            const emptyState = document.getElementById('emptyState');
+
+            let filtered = ANIME_DATABASE.filter(anime => {
+                const matchesGenre = appState.selectedGenre === "All" || anime.genre.includes(appState.selectedGenre);
+                const matchesSearch = anime.title.toLowerCase().includes(appState.searchQuery) || 
+                                      anime.genre.some(g => g.toLowerCase().includes(appState.searchQuery));
+                const matchesTab = appState.activeTab === "explore" || appState.watchlist.includes(anime.id);
+                return matchesGenre && matchesSearch && matchesTab;
+            });
+
+            // Sorting
+            filtered.sort((a, b) => {
+                if (appState.sortBy === "rating") return b.rating - a.rating;
+                if (appState.sortBy === "title") return a.title.localeCompare(b.title);
+                if (appState.sortBy === "episodes") return b.episodesCount - a.episodesCount;
+            });
+
+            document.getElementById('animeCountBadge').innerText = `Showing ${filtered.length} anime`;
+
+            if (filtered.length === 0) {
+                grid.innerHTML = "";
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            grid.innerHTML = filtered.map(anime => {
+                const isBookmarked = appState.watchlist.includes(anime.id);
+                return `
+                    <div class="group relative bg-dark-card border border-dark-border hover:border-brand-500/50 rounded-xl overflow-hidden shadow-lg transition-all duration-300 hover:-translate-y-1 flex flex-col">
+                        <!-- Card Image -->
+                        <div class="relative aspect-[3/4] overflow-hidden bg-gray-900 cursor-pointer" onclick="openVideoModal(${anime.id}, 1)">
+                            <img src="${anime.poster}" alt="${anime.title}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                            <div class="absolute inset-0 bg-gradient-to-t from-dark-base via-transparent to-transparent opacity-80"></div>
+                            
+                            <!-- Rating Badge -->
+                            <div class="absolute top-2 left-2 bg-dark-base/80 backdrop-blur-md px-2 py-0.5 rounded-md text-[10px] font-bold text-amber-400 border border-amber-500/20 flex items-center gap-1">
+                                <i class="fa-solid fa-star text-[9px]"></i> ${anime.rating}
+                            </div>
+
+                            <!-- Play Overlay Button -->
+                            <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/40 backdrop-blur-xs">
+                                <div class="w-12 h-12 rounded-full bg-brand-600 text-white flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform">
+                                    <i class="fa-solid fa-play ml-1"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Card Info -->
+                        <div class="p-3 flex-1 flex flex-col justify-between space-y-2">
+                            <div>
+                                <h3 class="text-xs sm:text-sm font-bold text-gray-100 line-clamp-1 group-hover:text-brand-accent transition-colors">${anime.title}</h3>
+                                <p class="text-[10px] text-gray-400 mt-0.5">${anime.genre.join(', ')} • ${anime.episodesCount} Ep</p>
+                            </div>
+
+                            <div class="flex items-center justify-between pt-1 border-t border-dark-border/60">
+                                <span class="text-[9px] text-brand-accent font-mono bg-brand-500/10 px-1.5 py-0.5 rounded">HD Stream</span>
+                                <button onclick="toggleWatchlist(${anime.id})" class="text-xs ${isBookmarked ? 'text-red-400' : 'text-gray-400 hover:text-white'} transition-colors">
+                                    <i class="${isBookmarked ? 'fa-solid' : 'fa-regular'} fa-bookmark"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // --- WATCHLIST & STORAGE ---
+        function toggleWatchlist(animeId) {
+            const index = appState.watchlist.indexOf(animeId);
+            if (index > -1) {
+                appState.watchlist.splice(index, 1);
+            } else {
+                appState.watchlist.push(animeId);
+            }
+            localStorage.setItem('jd_watchlist', JSON.stringify(appState.watchlist));
+            
+            simulateApiRequest('POST', '/api/v1/watchlist/toggle', { animeId, isBookmarked: index === -1 });
+            renderAnimeGrid();
+            updateDbStateSummary();
+        }
+
+        // --- INTERACTIVE VIDEO PLAYER SIMULATOR ---
+        function openVideoModal(animeId, epNumber = 1) {
+            const anime = ANIME_DATABASE.find(a => a.id === animeId);
+            if (!anime) return;
+
+            appState.currentStreamingAnime = anime;
+            appState.currentEpisodeIndex = epNumber;
+
+            document.getElementById('modalAnimeTitle').innerText = anime.title;
+            document.getElementById('modalEpisodeTitle').innerText = `- Episode ${epNumber}`;
+            
+            // Render Episode Playlist
+            const epContainer = document.getElementById('episodesList');
+            document.getElementById('episodeCountBadge').innerText = `${anime.episodesCount} Eps`;
+
+            let epHTML = '';
+            for (let i = 1; i <= anime.episodesCount; i++) {
+                const isActive = i === epNumber;
+                epHTML += `
+                    <button onclick="changeEpisode(${i})" class="w-full text-left p-2 rounded-lg text-xs flex items-center justify-between transition-colors ${isActive ? 'bg-brand-600/30 border border-brand-500 text-white font-bold' : 'hover:bg-dark-border text-gray-300'}">
+                        <span class="flex items-center gap-2">
+                            <i class="fa-solid ${isActive ? 'fa-circle-play text-brand-accent' : 'fa-play text-gray-500'} text-[10px]"></i>
+                            Ep ${i}: Episode Title #${i}
+                        </span>
+                        <span class="text-[10px] text-gray-500 font-mono">24:00</span>
+                    </button>
+                `;
+            }
+            epContainer.innerHTML = epHTML;
+
+            // Open Modal UI
+            const modal = document.getElementById('videoModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+
+            // Log API stream start event
+            simulateApiRequest('GET', `/api/v1/stream/play?animeId=${animeId}&episode=${epNumber}`);
+            
+            // Auto start play playback simulation
+            resetPlayback();
+            togglePlayPause();
+
+            // Track watch history progress
+            saveWatchHistory(anime, epNumber);
+        }
+
+        function changeEpisode(epNumber) {
+            if (!appState.currentStreamingAnime) return;
+            openVideoModal(appState.currentStreamingAnime.id, epNumber);
+        }
+
+        function closeVideoModal() {
+            const modal = document.getElementById('videoModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            
+            pausePlayback();
+            simulateApiRequest('POST', '/api/v1/stream/stop', { progress: appState.playbackProgress });
+        }
+
+        function togglePlayPause() {
+            if (appState.isPlaying) {
+                pausePlayback();
+            } else {
+                startPlayback();
+            }
+        }
+
+        function startPlayback() {
+            appState.isPlaying = true;
+            document.getElementById('playPauseBtn').className = "fa-solid fa-pause text-lg text-brand-accent";
+            document.getElementById('playIconMain').className = "fa-solid fa-pause text-2xl text-brand-accent ml-0";
+            
+            appState.playbackTimer = setInterval(() => {
+                if (appState.playbackProgress < 100) {
+                    appState.playbackProgress += 0.5;
+                    updateSeekUI();
+                } else {
+                    pausePlayback();
+                }
+            }, 500);
+        }
+
+        function pausePlayback() {
+            appState.isPlaying = false;
+            document.getElementById('playPauseBtn').className = "fa-solid fa-play text-lg";
+            document.getElementById('playIconMain').className = "fa-solid fa-play text-2xl text-brand-accent ml-1";
+            clearInterval(appState.playbackTimer);
+        }
+
+        function resetPlayback() {
+            pausePlayback();
+            appState.playbackProgress = 0;
+            updateSeekUI();
+        }
+
+        function seekVideo(val) {
+            appState.playbackProgress = parseFloat(val);
+            updateSeekUI();
+        }
+
+        function skipTime(seconds) {
+            appState.playbackProgress = Math.min(100, Math.max(0, appState.playbackProgress + (seconds / 14.4))); // 14.4 = 24 mins in scale
+            updateSeekUI();
+        }
+
+        function updateSeekUI() {
+            document.getElementById('videoSeekBar').value = appState.playbackProgress;
+            
+            // Calculate mock time mm:ss based on 24 mins max
+            const totalSeconds = (appState.playbackProgress / 100) * (24 * 60);
+            const mins = Math.floor(totalSeconds / 60);
+            const secs = Math.floor(totalSeconds % 60);
+            const formatted = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            
+            document.getElementById('currentTimeDisplay').innerText = formatted;
+        }
+
+        function toggleSubDub(mode) {
+            appState.subMode = mode;
+            document.getElementById('subBtn').className = mode === 'SUB' ? "px-2 py-0.5 rounded bg-brand-600 text-white font-bold" : "px-2 py-0.5 rounded text-gray-400 font-bold hover:text-white";
+            document.getElementById('dubBtn').className = mode === 'DUB' ? "px-2 py-0.5 rounded bg-brand-600 text-white font-bold" : "px-2 py-0.5 rounded text-gray-400 font-bold hover:text-white";
+            
+            simulateApiRequest('PUT', '/api/v1/stream/settings', { audioTrack: mode });
+        }
+
+        function changeQuality(quality) {
+            document.getElementById('canvasStreamInfo').innerText = `HLS Stream Ready: ${quality} @ 60fps`;
+            simulateApiRequest('PUT', '/api/v1/stream/bandwidth', { targetBitrate: quality });
+        }
+
+        function toggleFullscreenSimulation() {
+            logServerAction('CLIENT', 'Fullscreen API mode toggled.');
+        }
+
+        // --- HISTORY TRACKER ---
+        function saveWatchHistory(anime, ep) {
+            const existingIndex = appState.watchHistory.findIndex(h => h.id === anime.id);
+            const historyItem = {
+                id: anime.id,
+                title: anime.title,
+                ep: ep,
+                poster: anime.poster,
+                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            };
+
+            if (existingIndex > -1) {
+                appState.watchHistory.splice(existingIndex, 1);
+            }
+            appState.watchHistory.unshift(historyItem);
+            
+            if (appState.watchHistory.length > 3) appState.watchHistory.pop(); // Keep top 3
+            localStorage.setItem('jd_history', JSON.stringify(appState.watchHistory));
+            updateWatchHistoryUI();
+        }
+
+        function updateWatchHistoryUI() {
+            const container = document.getElementById('historyList');
+            if (appState.watchHistory.length === 0) {
+                container.innerHTML = `<p class="text-xs text-gray-500 col-span-3 italic">No recent streaming history logged.</p>`;
+                return;
+            }
+
+            container.innerHTML = appState.watchHistory.map(item => `
+                <div onclick="openVideoModal(${item.id}, ${item.ep})" class="bg-dark-base border border-dark-border p-2.5 rounded-xl flex items-center space-x-3 cursor-pointer hover:border-brand-accent/50 transition-all">
+                    <img src="${item.poster}" class="w-10 h-12 rounded object-cover">
+                    <div class="flex-1 truncate">
+                        <h4 class="text-xs font-bold text-white truncate">${item.title}</h4>
+                        <p class="text-[10px] text-gray-400">Episode ${item.ep} • ${item.timestamp}</p>
+                        <div class="w-full bg-gray-800 h-1 rounded-full mt-1.5 overflow-hidden">
+                            <div class="bg-brand-accent h-full w-2/3"></div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // --- DEV CONSOLE & ARCHITECTURE SIMULATOR ENGINE ---
+        function toggleDevConsole() {
+            const drawer = document.getElementById('devConsoleDrawer');
+            drawer.classList.toggle('translate-y-full');
+        }
+
+        function simulateApiRequest(method, endpoint, payload = null) {
+            appState.apiCallCount++;
+            document.getElementById('apiCallBadge').innerText = appState.apiCallCount;
+
+            const timestamp = new Date().toLocaleTimeString();
+            logServerAction('HTTP', `${method} ${endpoint} - 200 OK (${Math.floor(Math.random() * 25 + 12)}ms)`);
+
+            // Generate Mock JSON response
+            let responsePayload = {
+                status: 200,
+                endpoint: endpoint,
+                timestamp: new Date().toISOString(),
+                data: payload || { message: "Query processed successfully by Node.js server" }
+            };
+
+            if (endpoint.includes('/anime')) {
+                responsePayload.data = { totalCount: ANIME_DATABASE.length, sample: ANIME_DATABASE[0].title };
+            } else if (endpoint.includes('/profile')) {
+                responsePayload.data = { user: appState.currentUser, membership: "Premium Pro VIP", sessionValid: true };
+            }
+
+            document.getElementById('lastEndpointBadge').innerText = `${method} ${endpoint}`;
+            document.getElementById('jsonPayloadViewer').innerText = JSON.stringify(responsePayload, null, 2);
+        }
+
+        function logServerAction(type, msg) {
+            const container = document.getElementById('serverLogContainer');
+            const p = document.createElement('p');
+            
+            let color = 'text-gray-300';
+            if (type === 'SYSTEM') color = 'text-yellow-400';
+            if (type === 'HTTP') color = 'text-emerald-400';
+            if (type === 'CLIENT') color = 'text-cyan-400';
+
+            p.className = `${color} font-mono`;
+            p.innerText = `[${new Date().toLocaleTimeString()}] [${type}] ${msg}`;
+            container.appendChild(p);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function clearConsoleLogs() {
+            document.getElementById('serverLogContainer').innerHTML = '';
+        }
+
+        function updateDbStateSummary() {
+            document.getElementById('dbStateSummary').innerText = 
+                `Users: 1 (${appState.currentUser}) | Watchlist: ${appState.watchlist.length} items | Stream Sessions: ${appState.currentStreamingAnime ? '1 Active' : '0'}`;
+        }
+
+        // --- AUTHENTICATION MODAL SIMULATOR ---
+        function openAuthModal() {
+            document.getElementById('authModal').classList.remove('hidden');
+        }
+
+        function closeAuthModal() {
+            document.getElementById('authModal').classList.add('hidden');
+        }
+
+        function handleAuthSubmit(e) {
+            e.preventDefault();
+            const username = document.getElementById('authUsername').value;
+            appState.currentUser = username;
+            
+            document.getElementById('userNameDisplay').innerText = username;
+            document.getElementById('userAvatar').innerText = username.charAt(0).toUpperCase();
+
+            closeAuthModal();
+            simulateApiRequest('POST', '/api/v1/auth/login', { username, token: "jwt_eyJhbGciOiJIUzI1Ni..." });
+            updateDbStateSummary();
+        }
+    </script>
+</body>
+</html>
